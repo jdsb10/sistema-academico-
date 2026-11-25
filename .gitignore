@@ -1,0 +1,27 @@
+# Dependencias y artefactos generados
+node_modules/
+**/dist/
+**/build/
+*.tsbuildinfo
+coverage/
+
+# Secretos y datos locales
+server/.env
+**/.env
+**/.env.*
+!server/.env.example
+server/backups/
+server/.pgdata/
+**/.pgdata/
+**/*.log
+
+# Configuración de herramientas locales
+.claude/
+.playwright-mcp/
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini

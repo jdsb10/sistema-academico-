@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.log
+server/backups
+.git
+.gitignore
+.playwright-mcp
+audits
+docs/auditorias
+**/*.tmp

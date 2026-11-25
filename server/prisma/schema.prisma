@@ -1,0 +1,992 @@
+// ============================================================================
+// Sistema Academico Universitario - Esquema de base de datos
+// Proyecto Final - Ingenieria de Software II
+//
+// Fuente: PROYECTO FINAL INGENIERIA DE SOFTWARE II.pdf (18 clases)
+//         parcial_Ingenieria-del-software-Juan Salas.pdf (24 HU, RF-01..RF-24)
+//
+// Convenciones:
+//  - Tablas en snake_case plural (@@map), columnas en snake_case (@map).
+//  - IDs string con cuid() para distribucion sin secuencias centrales.
+//  - Baja logica (estado) en entidades con historial academico.
+//  - Campos denormalizados solo cuando el documento original los exige
+//    explicitamente o cuando son necesarios para restricciones de integridad.
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Rol {
+  ADMINISTRADOR
+  COORDINADOR
+  DOCENTE
+  ESTUDIANTE
+}
+
+enum EstadoUsuario {
+  ACTIVO
+  INACTIVO
+  BLOQUEADO
+}
+
+enum TipoDocumento {
+  CC
+  TI
+  CE
+  PASAPORTE
+  NIT
+}
+
+enum Sexo {
+  M
+  F
+  OTRO
+}
+
+enum EstadoCivil {
+  SOLTERO
+  CASADO
+  VIUDO
+  DIVORCIADO
+  UNION_LIBRE
+}
+
+enum EstadoAsistencia {
+  PRESENTE
+  AUSENTE
+  TARDANZA
+  JUSTIFICADO
+}
+
+enum OrigenAsistencia {
+  MANUAL
+  SENSOR
+  SESION
+}
+
+enum EstadoSesion {
+  ABIERTA
+  CERRADA
+}
+
+enum DiaSemana {
+  LUNES
+  MARTES
+  MIERCOLES
+  JUEVES
+  VIERNES
+  SABADO
+  DOMINGO
+}
+
+enum EstadoPeriodo {
+  PLANEADO
+  ACTIVO
+  CERRADO
+}
+
+enum EstadoBasico {
+  ACTIVO
+  INACTIVO
+}
+
+enum EstadoAula {
+  DISPONIBLE
+  MANTENIMIENTO
+  INACTIVA
+}
+
+enum EstadoCarga {
+  ACTIVA
+  CANCELADA
+}
+
+enum EstadoInscripcion {
+  ACTIVA
+  RETIRADA
+}
+
+enum EstadoPlan {
+  BORRADOR
+  ACTIVO
+  CERRADO
+}
+
+enum AvancePlan {
+  PENDIENTE
+  EN_CURSO
+  DESARROLLADO
+}
+
+enum EstadoEvaluacion {
+  ABIERTA
+  CERRADA
+}
+
+enum EstadoSincronizacion {
+  PENDIENTE
+  PROCESADA
+  RECHAZADA
+}
+
+enum EstadoEnvioCorreo {
+  EN_COLA
+  ENVIADA
+  FALLIDA
+}
+
+enum TipoAccion {
+  CREAR
+  ACTUALIZAR
+  ELIMINAR
+  LOGIN
+  LOGIN_FALLIDO
+  LOGOUT
+  BLOQUEO_CUENTA
+  CAMBIO_NOTA
+  CIERRE_NOTAS
+  CAMBIO_CARGA
+  CAMBIO_HORARIO
+  RESPALDO
+  RESTAURACION
+  EXPORTACION
+}
+
+enum TipoNotificacion {
+  CAMBIO_HORARIO
+  INASISTENCIA_REITERADA
+  NOTA_REGISTRADA
+  ASISTENCIA_REGISTRADA
+  PLAN_VENCIDO
+  CUENTA_BLOQUEADA
+  SISTEMA
+}
+
+// ============================================================================
+// SEGURIDAD Y AUTENTICACION  (HU-01, RF-01, HU-23)
+// ============================================================================
+
+model Usuario {
+  id            String         @id @default(cuid())
+  email         String         @unique @db.VarChar(190)
+  passwordHash  String         @map("password_hash") @db.VarChar(100)
+  rol           Rol
+  estado        EstadoUsuario  @default(ACTIVO)
+  intentosFallidos Int         @default(0) @map("intentos_fallidos")
+  bloqueadoHasta  DateTime?    @map("bloqueado_hasta")
+  ultimoAcceso  DateTime?      @map("ultimo_acceso")
+  debeCambiarPassword Boolean  @default(false) @map("debe_cambiar_password")
+  creadoEn      DateTime       @default(now()) @map("creado_en")
+  actualizadoEn DateTime       @updatedAt @map("actualizado_en")
+
+  administrador  Administrador?
+  coordinador    Coordinador?
+  docente        Docente?
+  estudiante     Estudiante?
+  refreshTokens  RefreshToken[]
+  auditorias     Auditoria[]
+  notificaciones Notificacion[]
+  historialNotas  HistorialCalificacion[]
+  resetPasswords  PasswordReset[]
+  correos         NotificacionCorreo[]
+
+  @@map("usuarios")
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  usuarioId  String    @map("usuario_id")
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(128)
+  expiraEn   DateTime  @map("expira_en")
+  revocada   Boolean   @default(false)
+  ip         String?   @db.VarChar(60)
+  dispositivo String?  @db.VarChar(190)
+  creadoEn   DateTime  @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("refresh_tokens")
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  usuarioId String    @map("usuario_id")
+  tokenHash String    @unique @map("token_hash") @db.VarChar(128)
+  expiraEn  DateTime  @map("expira_en")
+  usadoEn   DateTime? @map("usado_en")
+  creadoEn  DateTime  @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("password_resets")
+}
+
+model IntentoAcceso {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ip        String   @db.VarChar(60)
+  exitoso   Boolean
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  @@index([email, creadoEn])
+  @@index([ip, creadoEn])
+  @@map("intentos_acceso")
+}
+
+model Auditoria {
+  id               String      @id @default(cuid())
+  usuarioId        String?     @map("usuario_id")
+  emailUsuario     String?     @map("email_usuario") @db.VarChar(190)
+  rol              Rol?
+  accion           TipoAccion
+  entidad          String      @db.VarChar(100)
+  registroId       String?     @map("registro_id") @db.VarChar(100)
+  valoresAnteriores Json?      @map("valores_anteriores")
+  valoresNuevos    Json?       @map("valores_nuevos")
+  descripcion      String?     @db.VarChar(500)
+  ip               String?     @db.VarChar(60)
+  userAgent        String?     @map("user_agent") @db.VarChar(300)
+  creadoEn         DateTime    @default(now()) @map("creado_en")
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([entidad, registroId])
+  @@index([usuarioId, creadoEn])
+  @@index([accion, creadoEn])
+  @@map("auditorias")
+}
+
+model Notificacion {
+  id        String           @id @default(cuid())
+  usuarioId String           @map("usuario_id")
+  tipo      TipoNotificacion
+  titulo    String           @db.VarChar(200)
+  mensaje   String           @db.Text
+  leida     Boolean          @default(false)
+  creadoEn  DateTime         @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, leida, creadoEn])
+  @@map("notificaciones")
+}
+
+model NotificacionCorreo {
+  id         String            @id @default(cuid())
+  claveUnica String            @unique @map("clave_unica") @db.VarChar(190)
+  usuarioId  String            @map("usuario_id")
+  asunto     String            @db.VarChar(200)
+  cuerpo     String            @db.Text
+  estado     EstadoEnvioCorreo @default(EN_COLA)
+  intentos   Int               @default(0)
+  error      String?           @db.VarChar(500)
+  enviadoEn  DateTime?         @map("enviado_en")
+  creadoEn   DateTime          @default(now()) @map("creado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([estado, creadoEn])
+  @@map("notificaciones_correo")
+}
+
+// ============================================================================
+// ESTRUCTURA ACADEMICA  (Facultad, Programa, Periodo, Sede)
+// ============================================================================
+
+model Sede {
+  id        String     @id @default(cuid())
+  codigo    String     @unique @db.VarChar(20)
+  nombre    String     @db.VarChar(150)
+  direccion String?    @db.VarChar(250)
+  ciudad    String?    @db.VarChar(100)
+  estado    EstadoBasico @default(ACTIVO)
+  creadoEn  DateTime   @default(now()) @map("creado_en")
+
+  aulas Aula[]
+
+  @@map("sedes")
+}
+
+model Facultad {
+  id             String        @id @default(cuid())
+  codigo         String        @unique @db.VarChar(20)
+  nombre         String        @db.VarChar(150)
+  // Atributo original del documento. Se mantiene sincronizado por la capa de
+  // servicio y por trigger en base de datos (ver migracion de integridad).
+  numeroProgramas Int          @default(0) @map("numero_programas")
+  descripcion    String?       @db.VarChar(500)
+  estado         EstadoBasico  @default(ACTIVO)
+  creadoEn       DateTime      @default(now()) @map("creado_en")
+  actualizadoEn  DateTime      @updatedAt @map("actualizado_en")
+
+  programas Programa[]
+
+  @@map("facultades")
+}
+
+model Programa {
+  id             String        @id @default(cuid())
+  codigo         String        @unique @db.VarChar(30)
+  nombre         String        @db.VarChar(180)
+  numeroCreditos Int           @default(0) @map("numero_creditos")
+  facultadId     String        @map("facultad_id")
+  descripcion    String?       @db.VarChar(1000)
+  estado         EstadoBasico  @default(ACTIVO)
+  creadoEn       DateTime      @default(now()) @map("creado_en")
+  actualizadoEn  DateTime      @updatedAt @map("actualizado_en")
+
+  facultad             Facultad             @relation(fields: [facultadId], references: [id])
+  estudiantes          Estudiante[]
+  materias             MateriaPrograma[]
+  grupos               Grupo[]
+  microcurriculos      Microcurriculo[]
+  planesMicrocurriculo PlanMicrocurriculo[]
+  coordinadores        CoordinadorPrograma[]
+
+  @@index([facultadId])
+  @@map("programas")
+}
+
+model PeriodoAcademico {
+  id         String         @id @default(cuid())
+  codigo     String         @unique @db.VarChar(30)
+  nombre     String         @db.VarChar(100)
+  anio       Int
+  fechaInicio DateTime     @map("fecha_inicio") @db.Date
+  fechaFin   DateTime       @map("fecha_fin") @db.Date
+  estado     EstadoPeriodo  @default(PLANEADO)
+  creadoEn   DateTime       @default(now()) @map("creado_en")
+
+  grupos           Grupo[]
+  cargas           CargaAcademica[]
+  planes           PlanMicrocurriculo[]
+  configuracionesEvaluacion ConfiguracionEvaluacion[]
+
+  @@index([estado])
+  @@map("periodos_academicos")
+}
+
+// ============================================================================
+// PERSONAS: Administrador, Coordinador, Docente, Estudiante
+// ============================================================================
+
+model Administrador {
+  id             String        @id @default(cuid())
+  usuarioId      String        @unique @map("usuario_id")
+  tipoDocumento  TipoDocumento @map("tipo_documento") @default(CC)
+  numeroDocumento String       @unique @map("numero_documento") @db.VarChar(30)
+  nombres        String        @db.VarChar(120)
+  apellidos      String        @db.VarChar(120)
+  fechaNacimiento DateTime?    @map("fecha_nacimiento") @db.Date
+  sexo           Sexo?
+  celular        String?       @db.VarChar(30)
+  direccion      String?       @db.VarChar(250)
+  ciudad         String?       @db.VarChar(100)
+  departamento   String?       @db.VarChar(100)
+  pais           String?       @db.VarChar(100) @default("Colombia")
+  nivel          String        @default("ADMIN") @db.VarChar(30)
+  estado         EstadoBasico  @default(ACTIVO)
+  creadoEn       DateTime      @default(now()) @map("creado_en")
+  actualizadoEn  DateTime      @updatedAt @map("actualizado_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("administradores")
+}
+
+model Coordinador {
+  id              String        @id @default(cuid())
+  usuarioId       String        @unique @map("usuario_id")
+  tipoDocumento   TipoDocumento @map("tipo_documento") @default(CC)
+  numeroDocumento String        @unique @map("numero_documento") @db.VarChar(30)
+  nombres         String        @db.VarChar(120)
+  apellidos       String        @db.VarChar(120)
+  fechaNacimiento DateTime?     @map("fecha_nacimiento") @db.Date
+  sexo            Sexo?
+  celular         String?       @db.VarChar(30)
+  direccion       String?       @db.VarChar(250)
+  ciudad          String?       @db.VarChar(100)
+  departamento    String?       @db.VarChar(100)
+  pais            String?       @db.VarChar(100) @default("Colombia")
+  estado          EstadoBasico  @default(ACTIVO)
+  creadoEn        DateTime      @default(now()) @map("creado_en")
+  actualizadoEn   DateTime      @updatedAt @map("actualizado_en")
+
+  usuario    Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  programas  CoordinadorPrograma[]
+  cargas     CargaAcademica[]
+
+  @@map("coordinadores")
+}
+
+// HU-05: un coordinador puede regir uno o mas programas; un programa tiene
+// UN coordinador vigente (fecha_fin IS NULL), garantizado por indice unico
+// parcial en base de datos.
+model CoordinadorPrograma {
+  id           String    @id @default(cuid())
+  coordinadorId String   @map("coordinador_id")
+  programaId   String    @map("programa_id")
+  fechaInicio  DateTime  @default(now()) @map("fecha_inicio")
+  fechaFin     DateTime? @map("fecha_fin")
+  creadoEn     DateTime  @default(now()) @map("creado_en")
+
+  coordinador Coordinador @relation(fields: [coordinadorId], references: [id], onDelete: Cascade)
+  programa    Programa    @relation(fields: [programaId], references: [id], onDelete: Cascade)
+
+  @@unique([coordinadorId, programaId])
+  @@index([programaId, fechaFin])
+  @@map("coordinadores_programas")
+}
+
+model Docente {
+  id              String        @id @default(cuid())
+  usuarioId       String        @unique @map("usuario_id")
+  tipoDocumento   TipoDocumento @map("tipo_documento") @default(CC)
+  numeroDocumento String        @unique @map("numero_documento") @db.VarChar(30)
+  nombres         String        @db.VarChar(120)
+  apellidos       String        @db.VarChar(120)
+  fechaNacimiento DateTime?     @map("fecha_nacimiento") @db.Date
+  sexo            Sexo?
+  celular         String?       @db.VarChar(30)
+  direccion       String?       @db.VarChar(250)
+  ciudad          String?       @db.VarChar(100)
+  departamento    String?       @db.VarChar(100)
+  pais            String?       @db.VarChar(100) @default("Colombia")
+  estado          EstadoBasico  @default(ACTIVO)
+  creadoEn        DateTime      @default(now()) @map("creado_en")
+  actualizadoEn   DateTime      @updatedAt @map("actualizado_en")
+
+  usuario          Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  materias         MateriaDocente[]
+  cargas           CargaAcademica[]
+  planes           PlanMicrocurriculo[]
+  sesionesAsistencia Asistencia[]
+
+  @@map("docentes")
+}
+
+model Estudiante {
+  id                String        @id @default(cuid())
+  usuarioId         String        @unique @map("usuario_id")
+  tipoDocumento     TipoDocumento @map("tipo_documento") @default(CC)
+  numeroDocumento   String        @unique @map("numero_documento") @db.VarChar(30)
+  fechaExpedicion   DateTime?     @map("fecha_expedicion") @db.Date
+  nombres           String        @db.VarChar(120)
+  apellidos         String        @db.VarChar(120)
+  fechaNacimiento   DateTime?     @map("fecha_nacimiento") @db.Date
+  sexo              Sexo?
+  celular           String?       @db.VarChar(30)
+  estadoCivil       EstadoCivil?  @map("estado_civil")
+  direccion         String?       @db.VarChar(250)
+  ciudad            String?       @db.VarChar(100)
+  departamento      String?       @db.VarChar(100)
+  pais              String?       @db.VarChar(100) @default("Colombia")
+  puntajeIcfes      Int?          @map("puntaje_icfes")
+  nombreAcudiente   String?       @map("nombre_acudiente") @db.VarChar(120)
+  apellidoAcudiente String?       @map("apellido_acudiente") @db.VarChar(120)
+  celularAcudiente  String?       @map("celular_acudiente") @db.VarChar(30)
+  sisben            String?       @db.VarChar(50)
+  // La facultad se deriva del programa (evita duplicidad); el documento la
+  // lista como atributo y el API la expone calculada.
+  programaId        String        @map("programa_id")
+  estado            EstadoBasico  @default(ACTIVO)
+  creadoEn          DateTime      @default(now()) @map("creado_en")
+  actualizadoEn     DateTime      @updatedAt @map("actualizado_en")
+
+  usuario       Usuario           @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  programa      Programa          @relation(fields: [programaId], references: [id])
+  horarios      HorarioEstudiante[]
+  detallesAsistencia DetalleAsistencia[]
+  calificaciones    Calificacion[]
+
+  @@index([programaId])
+  @@index([nombres, apellidos])
+  @@map("estudiantes")
+}
+
+// ============================================================================
+// OFERTA ACADEMICA: Materia, Aula, MateriaDocente, MateriaPrograma, Grupo
+// ============================================================================
+
+model Materia {
+  id                    String        @id @default(cuid())
+  codigo                String        @unique @db.VarChar(30)
+  nombre                String        @db.VarChar(180)
+  numeroCreditos        Int           @map("numero_creditos")
+  departamentoOfertante String?       @map("departamento_ofertante") @db.VarChar(150)
+  estado                EstadoBasico  @default(ACTIVO)
+  creadoEn              DateTime      @default(now()) @map("creado_en")
+  actualizadoEn         DateTime      @updatedAt @map("actualizado_en")
+
+  programas        MateriaPrograma[]
+  docentes         MateriaDocente[]
+  grupos           Grupo[]
+  microcurriculos  Microcurriculo[]
+  planes           PlanMicrocurriculo[]
+
+  @@map("materias")
+}
+
+// Una materia puede pertenecer a distintos programas (Modulo 7).
+model MateriaPrograma {
+  materiaId   String   @map("materia_id")
+  programaId  String   @map("programa_id")
+  creadoEn    DateTime @default(now()) @map("creado_en")
+
+  materia  Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  programa Programa @relation(fields: [programaId], references: [id], onDelete: Cascade)
+
+  @@id([materiaId, programaId])
+  @@map("materias_programas")
+}
+
+// HU-07: define quien puede dictar que. Par unico docente-materia.
+model MateriaDocente {
+  id          String   @id @default(cuid())
+  materiaId   String   @map("materia_id")
+  docenteId   String   @map("docente_id")
+  creadoEn    DateTime @default(now()) @map("creado_en")
+
+  materia Materia @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  docente Docente @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+
+  @@unique([materiaId, docenteId])
+  @@index([docenteId])
+  @@map("materias_docentes")
+}
+
+model Aula {
+  id         String        @id @default(cuid())
+  codigo     String        @unique @db.VarChar(30)
+  nombre     String        @db.VarChar(120)
+  sedeId     String?       @map("sede_id")
+  capacidad  Int           @default(0)
+  estado     EstadoAula    @default(DISPONIBLE)
+  descripcion String?      @db.VarChar(300)
+  creadoEn   DateTime      @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @updatedAt @map("actualizado_en")
+
+  sede    Sede?             @relation(fields: [sedeId], references: [id])
+  cargas  CargaAcademica[]
+  sensores SensorAsistencia[]
+
+  @@index([sedeId])
+  @@map("aulas")
+}
+
+// HU-11 (CP-04): el grupo tiene cupo y es la unidad que el estudiante inscribe.
+model Grupo {
+  id          String   @id @default(cuid())
+  codigo      String   @db.VarChar(30)
+  materiaId   String   @map("materia_id")
+  programaId  String   @map("programa_id")
+  periodoId   String   @map("periodo_id")
+  cupo        Int      @default(30)
+  estado      EstadoBasico @default(ACTIVO)
+  creadoEn    DateTime @default(now()) @map("creado_en")
+
+  materia   Materia   @relation(fields: [materiaId], references: [id])
+  programa  Programa  @relation(fields: [programaId], references: [id])
+  periodo   PeriodoAcademico @relation(fields: [periodoId], references: [id])
+  cargas    CargaAcademica[]
+  configuracionesEvaluacion ConfiguracionEvaluacion[]
+
+  @@unique([codigo, materiaId, periodoId])
+  @@index([programaId, periodoId])
+  @@index([materiaId])
+  @@map("grupos")
+}
+
+// ============================================================================
+// CARGA ACADEMICA Y HORARIOS  (HU-09, HU-10, HU-11, HU-12)
+// ============================================================================
+
+// Clase CargaAcadémica del documento: distribucion de un grupo en un dia/hora
+// con docente y aula. Las restricciones de choque de docente, aula y grupo se
+// crean como EXCLUDE constraints en la migracion (btree_gist).
+model CargaAcademica {
+  id          String       @id @default(cuid())
+  grupoId     String       @map("grupo_id")
+  docenteId   String       @map("docente_id")
+  aulaId      String       @map("aula_id")
+  periodoId   String       @map("periodo_id")
+  dia         DiaSemana
+  horaInicio  DateTime     @map("hora_inicio") @db.Time(0)
+  horaFin     DateTime     @map("hora_fin") @db.Time(0)
+  estado      EstadoCarga  @default(ACTIVA)
+  creadoPor   String?      @map("creado_por")
+  creadoEn    DateTime     @default(now()) @map("creado_en")
+  actualizadoEn DateTime   @updatedAt @map("actualizado_en")
+
+  grupo     Grupo              @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  docente   Docente            @relation(fields: [docenteId], references: [id])
+  aula      Aula               @relation(fields: [aulaId], references: [id])
+  periodo   PeriodoAcademico   @relation(fields: [periodoId], references: [id])
+  coordinadorOrigen Coordinador? @relation(fields: [creadoPor], references: [id])
+  asistencias    Asistencia[]
+  horarioEstudiante HorarioEstudiante[]
+
+  @@index([docenteId, dia])
+  @@index([aulaId, dia])
+  @@index([periodoId, dia])
+  @@index([grupoId])
+  @@map("cargas_academicas")
+}
+
+// Clase HorarioEstudiante del documento: inscripcion real del estudiante a un
+// grupo (tambien es la "matricula" del Modulo de inscripciones). Los atributos
+// del documento (materia, aula, hora, grupo, dia) se exponen por relaciones.
+model HorarioEstudiante {
+  id             String            @id @default(cuid())
+  codigo         String            @unique @db.VarChar(40)
+  estudianteId   String            @map("estudiante_id")
+  cargaId        String            @map("carga_id")
+  fechaInscripcion DateTime        @default(now()) @map("fecha_inscripcion")
+  estado         EstadoInscripcion @default(ACTIVA)
+  creadoEn       DateTime          @default(now()) @map("creado_en")
+
+  estudiante Estudiante     @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  carga      CargaAcademica @relation(fields: [cargaId], references: [id], onDelete: Cascade)
+
+  @@unique([estudianteId, cargaId])
+  @@index([cargaId])
+  @@map("horarios_estudiantes")
+}
+
+// Clase HorarioDocente del documento: vista materializada sobre
+// cargas_academicas filtrada por docente. Se crea como VIEW en la migracion
+// para no duplicar informacion (ver docs/database/decisiones_normalizacion.md).
+
+// ============================================================================
+// ASISTENCIA  (HU-13, HU-14, HU-15, CP-03)
+// ============================================================================
+
+// Clase Asistencia del documento: sesion de asistencia de una clase.
+// Atributos derivados del documento que NO se guardan duplicados:
+// DocenteResponsable, Asignatura, CodigoAsignatura, Grupo y Sede se obtienen
+// de la carga academica y del aula asignados.
+model Asistencia {
+  id            String       @id @default(cuid())
+  codigo        String       @unique @db.VarChar(40)
+  cargaId       String       @map("carga_id")
+  tema          String       @db.VarChar(300)
+  fecha         DateTime     @db.Date
+  hora          DateTime     @db.Time(0)
+  estado        EstadoSesion @default(ABIERTA)
+  creadoPor     String       @map("creado_por")
+  creadoEn      DateTime     @default(now()) @map("creado_en")
+  actualizadoEn DateTime     @updatedAt @map("actualizado_en")
+  cerradaEn     DateTime?    @map("cerrada_en")
+
+  carga  CargaAcademica    @relation(fields: [cargaId], references: [id])
+  creador Docente          @relation(fields: [creadoPor], references: [id])
+  detalles DetalleAsistencia[]
+  lecturas SensorLectura[]
+
+  @@unique([cargaId, fecha, hora])
+  @@index([fecha])
+  @@map("asistencias")
+}
+
+// Clase DetalleAsistencia del documento. Identificacion, nombre, apellido y
+// correo del estudiante se exponen desde la relacion con Estudiante/Usuario.
+model DetalleAsistencia {
+  id            String           @id @default(cuid())
+  asistenciaId  String           @map("asistencia_id")
+  estudianteId  String           @map("estudiante_id")
+  estado        EstadoAsistencia
+  origen        OrigenAsistencia @default(SESION)
+  horaRegistro  DateTime         @default(now()) @map("hora_registro")
+  justificacion String?          @db.VarChar(500)
+  actualizadoEn DateTime         @updatedAt @map("actualizado_en")
+
+  asistencia Asistencia @relation(fields: [asistenciaId], references: [id], onDelete: Cascade)
+  estudiante Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+
+  @@unique([asistenciaId, estudianteId])
+  @@index([estudianteId])
+  @@map("detalles_asistencia")
+}
+
+// Clase SensorAsistencia del documento. NombreAula se deriva del aula.
+model SensorAsistencia {
+  id             String        @id @default(cuid())
+  codigo         String        @unique @db.VarChar(40)
+  aulaId         String        @unique @map("aula_id")
+  estado         EstadoBasico  @default(ACTIVO)
+  online         Boolean       @default(false)
+  ultimoHeartbeat DateTime?    @map("ultimo_heartbeat")
+  creadoEn       DateTime      @default(now()) @map("creado_en")
+
+  aula    Aula            @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+  lecturas SensorLectura[]
+
+  @@map("sensores_asistencia")
+}
+
+// Cola de lecturas del sensor: permite operar sin conexion y sincronizar
+// despues (HU-13, R-01, alerta A-01).
+model SensorLectura {
+  id             String               @id @default(cuid())
+  sensorId       String               @map("sensor_id")
+  asistenciaId   String?              @map("asistencia_id")
+  numeroDocumento String              @map("numero_documento") @db.VarChar(30)
+  lecturaEn      DateTime             @default(now()) @map("lectura_en")
+  recibidaEn     DateTime?            @map("recibida_en")
+  estado         EstadoSincronizacion @default(PENDIENTE)
+  resultado      String?              @db.VarChar(120)
+  mensaje        String?              @db.VarChar(500)
+  sincronizadaEn DateTime?            @map("sincronizada_en")
+
+  sensor     SensorAsistencia @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+  asistencia Asistencia?      @relation(fields: [asistenciaId], references: [id])
+
+  @@index([estado, lecturaEn])
+  @@index([sensorId, lecturaEn])
+  @@map("sensor_lecturas")
+}
+
+// ============================================================================
+// MICROCURRICULO  (HU-16, HU-17, HU-18, HU-19)
+// ============================================================================
+
+// Clase Microcurriculo. Programa y NombreMateria/NumeroCreditos se normalizan
+// a relaciones (materia_id, programa_id) + creditos propios del microcurriculo.
+model Microcurriculo {
+  id                          String   @id @default(cuid())
+  codigo                      String   @unique @db.VarChar(40)
+  materiaId                   String   @map("materia_id")
+  programaId                  String   @map("programa_id")
+  numeroCreditos              Int      @map("numero_creditos")
+  nivelSuperior               String   @map("nivel_superior") @db.Text
+  nivelNormal                 String   @map("nivel_normal") @db.Text
+  nivelBajo                   String   @map("nivel_bajo") @db.Text
+  nivelDeficiente             String   @map("nivel_deficiente") @db.Text
+  departamentoOferente        String   @map("departamento_oferente") @db.VarChar(150)
+  tipoAsignatura              String   @map("tipo_asignatura") @db.VarChar(80)
+  naturalezaAsignatura        String   @map("naturaleza_asignatura") @db.VarChar(80)
+  descripcionAsignatura       String   @map("descripcion_asignatura") @db.Text
+  objetivoGeneral             String   @map("objetivo_general") @db.Text
+  objetivosEspecificos        String   @map("objetivos_especificos") @db.Text
+  competenciasGenericas       String   @map("competencias_genericas") @db.Text
+  estrategiasPedagogicasMetodologicas String @map("estrategias_pedagogicas_metodologicas") @db.Text
+  referenciasBibliograficas   String   @map("referencias_bibliograficas") @db.Text
+  primerParcial               String   @map("primer_parcial") @db.Text
+  segundoParcial              String   @map("segundo_parcial") @db.Text
+  tercerParcial               String   @map("tercer_parcial") @db.Text
+  estado                      EstadoBasico @default(ACTIVO)
+  creadoEn                    DateTime @default(now()) @map("creado_en")
+  actualizadoEn               DateTime @updatedAt @map("actualizado_en")
+
+  materia      Materia      @relation(fields: [materiaId], references: [id])
+  programa     Programa     @relation(fields: [programaId], references: [id])
+  contenidos   ContenidoCompetenciaEspecifica[]
+  planes       PlanMicrocurriculo[]
+  prerequisitos MicrocurriculoPrerequisito[] @relation("PrerequisitoDe")
+  requeridoPor  MicrocurriculoPrerequisito[] @relation("RequeridoPor")
+
+  @@index([programaId])
+  @@index([materiaId])
+  @@map("microcurriculos")
+}
+
+model MicrocurriculoPrerequisito {
+  microcurriculoId    String @map("microcurriculo_id")
+  prerequisitoMateriaId String @map("prerequisito_materia_id")
+  creadoEn            DateTime @default(now()) @map("creado_en")
+
+  microcurriculo    Microcurriculo @relation("RequeridoPor", fields: [microcurriculoId], references: [id], onDelete: Cascade)
+  prerequisitoMateria Microcurriculo @relation("PrerequisitoDe", fields: [prerequisitoMateriaId], references: [id], onDelete: Cascade)
+
+  @@id([microcurriculoId, prerequisitoMateriaId])
+  @@map("microcurriculos_prerequisitos")
+}
+
+// Clase ContenidoCompetenciasEspecíficas.
+model ContenidoCompetenciaEspecifica {
+  id                   String   @id @default(cuid())
+  codigo               String   @unique @db.VarChar(40)
+  microcurriculoId     String   @map("microcurriculo_id")
+  unidadTematica       String   @map("unidad_tematica") @db.VarChar(200)
+  competenciasEspecificas String @map("competencias_especificas") @db.Text
+  resultadosAprendizaje String  @map("resultados_aprendizaje") @db.Text
+  nivelSuperior        String   @map("nivel_superior") @db.Text
+  nivelNormal          String   @map("nivel_normal") @db.Text
+  nivelBajo            String   @map("nivel_bajo") @db.Text
+  nivelDeficiente      String   @map("nivel_deficiente") @db.Text
+  orden                Int      @default(1)
+  creadoEn             DateTime @default(now()) @map("creado_en")
+  actualizadoEn        DateTime @updatedAt @map("actualizado_en")
+
+  microcurriculo Microcurriculo           @relation(fields: [microcurriculoId], references: [id], onDelete: Cascade)
+  detallesPlan   DetallePlanMicrocurriculo[]
+
+  @@index([microcurriculoId])
+  @@map("contenidos_competencias_especificas")
+}
+
+// Clase PlanMicrocurriculo. NombreDocente/ApellidoDocente/Correo, Facultad,
+// Materia, Creditos, TipoAsignatura y NaturalezaAsignatura se derivan de las
+// relaciones (docente, materia, microcurriculo, programa -> facultad).
+model PlanMicrocurriculo {
+  id               String      @id @default(cuid())
+  codigo           String      @unique @db.VarChar(40)
+  microcurriculoId String      @map("microcurriculo_id")
+  docenteId        String      @map("docente_id")
+  materiaId        String      @map("materia_id")
+  programaId       String      @map("programa_id")
+  periodoId        String      @map("periodo_id")
+  anioLectivo      Int         @map("anio_lectivo")
+  fechaInicio      DateTime    @map("fecha_inicio") @db.Date
+  fechaTerminacion DateTime    @map("fecha_terminacion") @db.Date
+  totalHoras       Int         @map("total_horas")
+  estado           EstadoPlan  @default(BORRADOR)
+  creadoEn         DateTime    @default(now()) @map("creado_en")
+  actualizadoEn    DateTime    @updatedAt @map("actualizado_en")
+
+  microcurriculo Microcurriculo          @relation(fields: [microcurriculoId], references: [id])
+  docente        Docente                 @relation(fields: [docenteId], references: [id])
+  materia        Materia                 @relation(fields: [materiaId], references: [id])
+  programa       Programa                @relation(fields: [programaId], references: [id])
+  periodo        PeriodoAcademico        @relation(fields: [periodoId], references: [id])
+  detalles       DetallePlanMicrocurriculo[]
+
+  @@unique([microcurriculoId, docenteId, periodoId])
+  @@index([docenteId, periodoId])
+  @@index([programaId])
+  @@map("planes_microcurriculares")
+}
+
+// Seguimiento por unidad tematica (HU-19, DetallePlanMicrocurriculo).
+model DetallePlanMicrocurriculo {
+  id              String      @id @default(cuid())
+  planId          String      @map("plan_id")
+  contenidoId     String      @map("contenido_id")
+  avance          AvancePlan  @default(PENDIENTE)
+  porcentajeAvance Int        @default(0) @map("porcentaje_avance")
+  observaciones   String?     @db.VarChar(1000)
+  fechaActualizacion DateTime @default(now()) @map("fecha_actualizacion")
+  actualizadoPor  String?     @map("actualizado_por") @db.VarChar(190)
+
+  plan      PlanMicrocurriculo          @relation(fields: [planId], references: [id], onDelete: Cascade)
+  contenido ContenidoCompetenciaEspecifica @relation(fields: [contenidoId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, contenidoId])
+  @@map("detalles_plan_microcurriculo")
+}
+
+// ============================================================================
+// CALIFICACIONES  (HU-20, CP-05)
+// ============================================================================
+
+// Configuracion de evaluaciones de un grupo: los porcentajes deben sumar
+// exactamente 100 antes de poder cerrar la configuracion.
+model ConfiguracionEvaluacion {
+  id         String              @id @default(cuid())
+  grupoId    String              @map("grupo_id")
+  periodoId  String              @map("periodo_id")
+  estado     EstadoEvaluacion    @default(ABIERTA)
+  cerradaPor String?             @map("cerrada_por")
+  cerradaEn  DateTime?           @map("cerrada_en")
+  creadoEn   DateTime            @default(now()) @map("creado_en")
+
+  grupo      Grupo               @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  periodo    PeriodoAcademico    @relation(fields: [periodoId], references: [id])
+  evaluaciones Evaluacion[]
+
+  @@unique([grupoId, periodoId])
+  @@map("configuraciones_evaluacion")
+}
+
+model Evaluacion {
+  id              String   @id @default(cuid())
+  configuracionId String   @map("configuracion_id")
+  nombre          String   @db.VarChar(150)
+  porcentaje      Decimal  @db.Decimal(5, 2)
+  orden           Int      @default(1)
+  creadoEn        DateTime @default(now()) @map("creado_en")
+
+  configuracion  ConfiguracionEvaluacion @relation(fields: [configuracionId], references: [id], onDelete: Cascade)
+  calificaciones Calificacion[]
+
+  @@index([configuracionId])
+  @@map("evaluaciones")
+}
+
+// Nota del estudiante en una evaluacion. Rango 0.0 - 5.0 (CP-05).
+model Calificacion {
+  id           String    @id @default(cuid())
+  evaluacionId String    @map("evaluacion_id")
+  estudianteId String    @map("estudiante_id")
+  valor        Decimal   @db.Decimal(3, 2)
+  actualizadoPor String  @map("actualizado_por") @db.VarChar(190)
+  creadoEn     DateTime  @default(now()) @map("creado_en")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  evaluacion Evaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  estudiante Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  historial   HistorialCalificacion[]
+
+  @@unique([evaluacionId, estudianteId])
+  @@index([estudianteId])
+  @@map("calificaciones")
+}
+
+// Trazabilidad de cambios de nota (HU-20, HU-23, alerta A-06).
+model HistorialCalificacion {
+  id             String    @id @default(cuid())
+  calificacionId String    @map("calificacion_id")
+  valorAnterior  Decimal?  @map("valor_anterior") @db.Decimal(3, 2)
+  valorNuevo     Decimal   @map("valor_nuevo") @db.Decimal(3, 2)
+  usuarioId      String    @map("usuario_id")
+  fecha          DateTime  @default(now())
+
+  calificacion Calificacion @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
+  usuario      Usuario      @relation(fields: [usuarioId], references: [id])
+
+  @@index([calificacionId, fecha])
+  @@map("historial_calificaciones")
+}
+
+// ============================================================================
+// RESPALDOS (HU-24)
+// ============================================================================
+
+model Respaldo {
+  id              String   @id @default(cuid())
+  nombreArchivo   String   @map("nombre_archivo") @db.VarChar(250)
+  ruta            String   @db.VarChar(500)
+  tamanoBytes     BigInt   @default(0) @map("tamano_bytes")
+  estado          String   @default("COMPLETADO") @db.VarChar(30)
+  duracionSegundos Int     @default(0) @map("duracion_segundos")
+  error           String?  @db.VarChar(500)
+  creadoEn        DateTime @default(now()) @map("creado_en")
+
+  @@map("respaldos")
+}
+
+// ============================================================================
+// PARAMETROS GENERALES
+// ============================================================================
+
+model ParametroSistema {
+  clave       String   @id @db.VarChar(80)
+  valor       String   @db.Text
+  descripcion String?  @db.VarChar(300)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  @@map("parametros_sistema")
+}

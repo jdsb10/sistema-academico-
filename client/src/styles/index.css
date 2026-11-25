@@ -1,0 +1,264 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-ui);
+    font-feature-settings: 'cv05' 1, 'ss01' 1;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Foco visible obligatorio: nunca outline:none sin reemplazo. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+    color: var(--color-text);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+}
+
+@layer components {
+  /* Lienzo con luz direccional: profundidad sin ruido ni degradados de plantilla. */
+  .app-main {
+    background-image:
+      radial-gradient(900px 380px at 100% -10%, rgba(185, 75, 39, 0.07), transparent 70%),
+      radial-gradient(700px 320px at 0% 100%, rgba(15, 46, 42, 0.05), transparent 70%);
+    background-repeat: no-repeat;
+  }
+
+  /* ---------- Cabeceras de pantalla ---------- */
+  .page-kicker {
+    @apply mb-3 block text-[11px] font-semibold uppercase tracking-[0.2em] text-accent;
+  }
+
+  /* Toda pantalla hereda la misma jerarquia: linea de acento + titulo + descripcion. */
+  main h1 {
+    font-size: clamp(1.5rem, 1.2rem + 1.1vw, 2rem);
+    line-height: 1.15;
+    font-weight: 650;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  main h1::before {
+    content: '';
+    display: block;
+    width: 34px;
+    height: 3px;
+    margin-bottom: 14px;
+    border-radius: 999px;
+    background-color: var(--color-accent);
+  }
+  main h1 + p {
+    max-width: 68ch;
+    line-height: 1.6;
+  }
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+
+  /* ---------- Superficies ---------- */
+  .surface-card {
+    @apply rounded-[var(--radius-card)] border border-border bg-surface shadow-card;
+  }
+
+  .toolbar {
+    @apply flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5;
+  }
+
+  .icon-button {
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-lg text-text-muted transition-all duration-150 hover:bg-surface-alt hover:text-text active:scale-95;
+  }
+
+  /* ---------- Tablas: mismo lenguaje en escritorio y tarjetas en movil ---------- */
+  .data-table {
+    @apply w-full border-collapse text-sm;
+  }
+  .data-table thead tr {
+    @apply border-b border-border;
+  }
+  .data-table thead th {
+    @apply whitespace-nowrap px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted;
+    background-color: var(--color-surface-alt);
+  }
+  .data-table tbody tr {
+    @apply border-b border-border transition-colors duration-150 last:border-0;
+  }
+  .data-table tbody tr:hover {
+    background-color: var(--color-surface-alt);
+  }
+  .data-table tbody td {
+    @apply px-5 py-3 align-middle text-text;
+  }
+
+  @media (max-width: 639px) {
+    .data-table thead {
+      display: none;
+    }
+    .data-table,
+    .data-table tbody,
+    .data-table tr,
+    .data-table td {
+      display: block;
+      width: 100%;
+    }
+    .data-table tbody {
+      padding: 12px;
+    }
+    .data-table tbody tr {
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      background-color: var(--color-surface);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .data-table tbody tr:last-child {
+      margin-bottom: 0;
+    }
+    .data-table tbody td {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 7px 0;
+      border: 0;
+      text-align: left !important;
+    }
+    .data-table tbody td::before {
+      content: attr(data-label);
+      flex: 0 0 42%;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-text-muted);
+      padding-top: 2px;
+    }
+    .data-table tbody td[data-label='']::before {
+      content: '';
+      flex-basis: 0;
+    }
+  }
+
+  /* ---------- Indicadores ---------- */
+  .stat-card {
+    @apply relative overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-card;
+  }
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent) 28%, transparent 28%);
+  }
+  .stat-value {
+    @apply mt-3 block text-[1.75rem] font-semibold leading-none tracking-tight text-text;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .soft-panel {
+    @apply rounded-[var(--radius-card)] border border-border bg-surface-alt p-4;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-[13px] font-semibold text-text;
+  }
+}
+
+@layer utilities {
+  .animate-enter {
+    animation: enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-enter-delay {
+    animation: enter 0.55s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .text-numeric {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+}
+
+/* Objetivos táctiles de al menos 44 px en móvil (WCAG 2.5.5 / Impeccable). */
+@media (max-width: 639px) {
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+  button {
+    min-width: 44px;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Barra indeterminada para operaciones en curso. */
+@keyframes indeterminate {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.25s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

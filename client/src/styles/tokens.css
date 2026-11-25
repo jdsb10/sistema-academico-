@@ -1,0 +1,46 @@
+/**
+ * Sistema visual "Campus Editorial".
+ * Regla 60-30-10: 60% superficies marfil, 30% estructura verde tinta,
+ * 10% acento terracota reservado para acciones y estados activos.
+ * Ningún componente define colores propios: todos consumen estos tokens.
+ */
+:root {
+  /* Tipografia: una familia de UI + una monoespaciada opcional. */
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* 60% — superficie neutra */
+  --color-bg: #f5f4ef;
+  --color-surface: #ffffff;
+  --color-surface-alt: #eeede6;
+  --color-text: #152622;
+  --color-text-muted: #5d6b66;
+  --color-text-inverse: #f7f6f1;
+  --color-border: #dfe2da;
+  --color-border-strong: #c5cbc0;
+
+  /* 30% — color estructural */
+  --color-primary: #0f2e2a;
+  --color-primary-hover: #09211e;
+  --color-primary-light: #24584f;
+  --color-primary-soft: #e3ece8;
+
+  /* 10% — acento unico */
+  --color-accent: #b94b27;
+  --color-accent-hover: #993c1e;
+  --color-accent-strong: #a9421f; /* texto sobre fondos de acento suave (AA) */
+  --color-accent-soft: #fae9e1;
+
+  /* Semantica (WCAG AA sobre superficie clara) */
+  --color-danger: #b3372f;
+  --color-danger-soft: #fae8e6;
+  --color-success: #26704f;
+  --color-success-soft: #e5f1ea;
+  --color-warning: #916018;
+  --color-warning-soft: #faf0dc;
+
+  /* Elevacion y geometria */
+  --shadow-card: 0 1px 2px rgba(21, 38, 34, 0.04), 0 8px 24px -14px rgba(21, 38, 34, 0.22);
+  --shadow-popover: 0 24px 60px -20px rgba(9, 33, 30, 0.35), 0 4px 12px -4px rgba(9, 33, 30, 0.18);
+  --radius-card: 14px;
+}
