@@ -25,7 +25,7 @@ CORS_ORIGINS=https://tu-dominio.com
 BACKUP_DIR=/data/backups
 ```
 
-- `DATABASE_URL` la entrega la plataforma al crear el PostgreSQL.
+- `DATABASE_URL` la entrega la plataforma al crear el PostgreSQL. Si el hosting usa otro nombre (`DATABASE_PUBLIC_URL`, `POSTGRES_URL` o `PGURL`), `scripts/start-prod.mjs` lo detecta y lo copia automáticamente. Si ninguna existe, el contenedor falla con un mensaje claro en vez de arrancar a medias.
 - Los `JWT_*` del `server/.env` son solo de desarrollo: genéralos nuevos.
 - `CORS_ORIGINS` debe ser el dominio final exacto (sin `/api`, sin coma si solo hay uno).
 - `/data` debe ser un **volumen persistente**: ahí se guardan los respaldos HU-24.
@@ -43,7 +43,8 @@ BACKUP_DIR=/data/backups
    railway up
    ```
    Railway detecta el `Dockerfile` automáticamente.
-3. En el servicio → **Variables** pega las variables de arriba (Railway ya inyecta `DATABASE_URL`).
+3. En el servicio web → **Variables** pega las variables de arriba. Para la DB, haz clic en **+ New Variable → Add reference** y elige la variable `DATABASE_URL` del servicio PostgreSQL. Si no aparece, entra al servicio PostgreSQL → **Variables**, copia `DATABASE_PUBLIC_URL` y pégala como `DATABASE_URL` en el servicio web. `scripts/start-prod.mjs` también acepta `DATABASE_PUBLIC_URL` directo.
+   > Si ves `Environment variable not found: DATABASE_URL`, significa que el servicio PostgreSQL aún no está creado o no está vinculado: no es un error de código.
 4. En el servicio → **Settings → Volumes → New volume**, mount path `/data`.
 5. **Settings → Generate Domain**. Healthcheck: `/health`.
 6. Si quieres datos de demo (solo para prueba, no producción):
