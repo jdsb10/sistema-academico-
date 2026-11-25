@@ -47,10 +47,8 @@ BACKUP_DIR=/data/backups
    > Si ves `Environment variable not found: DATABASE_URL`, significa que el servicio PostgreSQL aún no está creado o no está vinculado: no es un error de código.
 4. En el servicio → **Settings → Volumes → New volume**, mount path `/data`.
 5. **Settings → Generate Domain**. Healthcheck: `/health`.
-6. Si quieres datos de demo (solo para prueba, no producción):
-   ```powershell
-   railway run -- npm run db:seed --workspace server
-   ```
+6. Los datos de demo se cargan **automáticamente en el primer deploy**: `scripts/start-prod.mjs` aplica las migraciones y, si la base está vacía (0 usuarios y 0 sedes), ejecuta el seed. En deploys siguientes detecta los datos existentes y no los borra. Para desactivarlo, agrega la variable `SEED_ON_START=false`.
+   > El seed es destructivo por diseño, por eso solo corre con la base vacía. Si necesitas recargarlo, hazlo a mano con `railway run -- npm run db:seed --workspace server`.
 
 ## Render
 

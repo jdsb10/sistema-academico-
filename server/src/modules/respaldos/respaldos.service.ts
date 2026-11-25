@@ -154,7 +154,9 @@ export async function restaurarRespaldo(id: string): Promise<{ duracionSegundos:
         ...(tabla === 'usuario' ? { skipDuplicates: true } : {}),
       });
     }
-  });
+    // Son 31 TRUNCATE CASCADE + 31 createMany: el timeout interactivo por
+    // defecto de Prisma (5 s) se queda corto incluso con la BD local.
+  }, { maxWait: 10_000, timeout: 120_000 });
 
   return { duracionSegundos: Math.round((Date.now() - inicio) / 1000) };
 }
