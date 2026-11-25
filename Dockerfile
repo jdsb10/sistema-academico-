@@ -13,9 +13,11 @@ COPY client/package.json client/package.json
 RUN npm ci
 
 COPY . .
-RUN npm run build --workspace server \
- && npm run build --workspace client \
- && npx prisma generate --schema server/prisma/schema.prisma
+# Generar el cliente de Prisma ANTES de compilar: TS necesita los enums y tipos
+# exportados por @prisma/client (Rol, TipoAccion, DiaSemana, PrismaClientKnownRequestError...).
+RUN npx prisma generate --schema server/prisma/schema.prisma \
+ && npm run build --workspace server \
+ && npm run build --workspace client
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
