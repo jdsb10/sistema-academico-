@@ -24,6 +24,8 @@ Sistema completo y funcional de extremo a extremo (base de datos → API REST �
 | 14. Documentación y manuales | ✅ Completa: análisis, Scrum, 8 diagramas UML (Mermaid) y 7 manuales (instalación, configuración, técnico, 4 de usuario por rol) en `docs/uml/` y `docs/manuales/` | |
 | 15. Verificación final | ✅ Backend compila y pasa pruebas · ✅ Frontend compila y se verificó manualmente en navegador (4 roles, 3 anchos de pantalla) | |
 
+> **Corrección posterior (2026-11-25):** al cerrar sesión y entrar con otro rol sin recargar, React Query reutilizaba la caché del usuario anterior y el dashboard quedaba en blanco (`proximasClases` undefined). Ahora `AuthContext` limpia la caché al iniciar/cerrar sesión y al expirar la sesión, `ListaClases` tolera datos ausentes y el menú de usuario del Topbar vuelve a recibir clics reales (`relative z-30`). Verificado en vivo: admin → estudiante → admin sin recargar, 0 errores de consola.
+
 ## 3. Módulos implementados (backend: API completa; frontend: página funcional)
 
 | Módulo | Backend | Frontend |

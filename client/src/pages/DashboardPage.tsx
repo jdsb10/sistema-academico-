@@ -79,11 +79,12 @@ function AccesosRapidos({ rol, rutas }: { rol: Rol; rutas: string[] }) {
   );
 }
 
-function ListaClases({ clases }: { clases: { materia: string; dia: string; aula: string }[] }) {
-  if (clases.length === 0) return <EmptyState title="No hay clases próximas" description="Cuando tengas sesiones programadas aparecerán aquí." />;
+function ListaClases({ clases }: { clases?: { materia: string; dia: string; aula: string }[] }) {
+  const lista = clases ?? [];
+  if (lista.length === 0) return <EmptyState title="No hay clases próximas" description="Cuando tengas sesiones programadas aparecerán aquí." />;
   return (
     <ul className="divide-y divide-border">
-      {clases.map((c, i) => (
+      {lista.map((c, i) => (
         <li key={i} className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent-soft text-accent">

@@ -40,7 +40,7 @@ export function Topbar({
   }, []);
 
   return (
-    <header className="flex h-[72px] flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-[rgba(255,255,255,0.95)] px-4 backdrop-blur sm:px-6 lg:px-8">
+    <header className="relative z-30 flex h-[72px] flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-[rgba(255,255,255,0.95)] px-4 backdrop-blur sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           ref={menuButtonRef}
