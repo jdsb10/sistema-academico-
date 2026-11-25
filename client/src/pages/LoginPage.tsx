@@ -37,7 +37,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
       {/* Lado de marca: encabezado compacto en móvil y pieza editorial en escritorio. */}
-      <section className="relative flex-shrink-0 overflow-hidden bg-primary px-6 py-6 text-text-inverse sm:px-10 sm:py-10 lg:flex lg:w-[46%] lg:flex-col lg:justify-between lg:px-14 lg:py-14">
+      <section className="relative hidden flex-shrink-0 overflow-hidden bg-primary px-5 py-4 text-text-inverse sm:block sm:px-10 sm:py-10 lg:flex lg:w-[46%] lg:flex-col lg:justify-between lg:px-14 lg:py-14">
         <div className="pointer-events-none absolute -right-24 -top-24 h-[420px] w-[420px] rounded-full border border-white/10" aria-hidden />
         <div className="pointer-events-none absolute -right-10 -top-10 h-[300px] w-[300px] rounded-full border border-white/10" aria-hidden />
         <div className="pointer-events-none absolute -bottom-40 -left-20 h-[420px] w-[420px] rounded-full bg-[rgba(185,75,39,0.1)] blur-3xl" aria-hidden />
@@ -54,7 +54,7 @@ export default function LoginPage() {
             La gestión académica,
             <span className="block text-accent-soft">en un solo lugar.</span>
           </p>
-          <p className="mt-2 max-w-[440px] text-[13px] leading-relaxed text-white/65 sm:mt-3 sm:text-[14px] lg:mt-6 lg:text-[15px]">
+          <p className="mt-2 hidden max-w-[440px] text-[13px] leading-relaxed text-white/65 sm:mt-3 sm:block sm:text-[14px] lg:mt-6 lg:text-[15px]">
             Facultades, grupos, asistencia, calificaciones y trazabilidad en una misma plataforma universitaria.
           </p>
 
@@ -80,13 +80,18 @@ export default function LoginPage() {
       </section>
 
       {/* Formulario: manda en móvil y escritorio. */}
-      <section className="flex flex-1 items-center justify-center bg-bg px-5 py-8 sm:px-8 sm:py-10 lg:px-12">
+      <section className="flex flex-1 items-center justify-center bg-bg px-5 py-6 sm:px-8 sm:py-10 lg:px-12">
         <div className="w-full max-w-[420px]">
+          {/* En móvil la marca va aquí: el bloque editorial de arriba se oculta para que el login quepa y se lea bien. */}
+          <div className="mb-5 flex items-center gap-2 sm:hidden">
+            <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">Sistema Académico · Universidad</span>
+          </div>
           <p className="page-kicker">Bienvenido de nuevo</p>
           <h1 className="text-[26px] font-semibold tracking-[-0.035em] text-text">Ingresa a tu espacio</h1>
           <p className="mt-2 text-sm leading-relaxed text-text-muted">Ingrese con su correo institucional</p>
 
-          <form onSubmit={onSubmit} className="mt-7 flex flex-col gap-5" noValidate>
+          <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-4 sm:mt-7 sm:gap-5" noValidate>
             <Input
               label="Correo electronico"
               type="email"
@@ -120,7 +125,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-7 flex items-start gap-3 rounded-xl border border-border bg-surface p-4">
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-surface p-3 sm:mt-7 sm:p-4">
             <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary-light" aria-hidden />
             <p className="text-xs leading-relaxed text-text-muted">
               Cinco intentos fallidos bloquean la cuenta durante 15 minutos.
